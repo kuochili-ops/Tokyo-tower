@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>浮世繪東都鐵塔 · 寫實 PBR 建模</title>
+  <title>浮世繪東都鐵塔 · 新版畫都市 PBR 建模</title>
   <style>
     * {
       box-sizing: border-box;
@@ -33,23 +33,21 @@
       height: 100%;
       touch-action: none;
     }
-    /* 浮世繪版畫四邊墨線框與和紙肌理疊層（不阻擋觸控） */
     .ukiyo-frame {
       position: fixed;
       inset: 8px;
-      border: 2px solid rgba(18, 28, 40, 0.72);
-      box-shadow: inset 0 0 0 1px rgba(244, 232, 206, 0.35), inset 0 0 42px rgba(235, 218, 184, 0.16);
+      border: 2px solid rgba(16, 26, 38, 0.78);
+      box-shadow: inset 0 0 0 1px rgba(244, 232, 206, 0.4), inset 0 0 46px rgba(235, 218, 184, 0.18);
       pointer-events: none;
       z-index: 5;
     }
-    /* 浮世繪題籤（Cartouche） */
     .ukiyo-stamp {
       position: fixed;
       top: 18px;
       left: 18px;
       z-index: 10;
       padding: 8px 12px;
-      background: rgba(244, 233, 210, 0.92);
+      background: rgba(244, 233, 210, 0.93);
       border: 2px solid #15212e;
       box-shadow: 3px 3px 0 #15212e, inset 0 0 0 1px rgba(196, 62, 42, 0.65);
       color: #15212e;
@@ -168,10 +166,10 @@
   <div class="ukiyo-frame"></div>
 
   <div class="ukiyo-stamp">
-    <div class="seal">富嶽<br>百景</div>
+    <div class="seal">東都<br>新版</div>
     <div>
-      <h1>東都芝浦鐵塔遠眺富士</h1>
-      <p>木版畫風格 · 寫實 PBR 渲染管線</p>
+      <h1>芝浦鐵塔與江戶市街圖</h1>
+      <p>新版畫木刻管線 · 寫實 PBR 材質</p>
     </div>
   </div>
 
@@ -179,12 +177,12 @@
 
   <aside id="panel" aria-label="浮世繪與 PBR 參數">
     <div class="ctrl">
-      <label for="ink-weight"><span>主版墨線濃淡</span><span id="ink-weight-val">1.15</span></label>
-      <input id="ink-weight" type="range" min="0" max="2.0" step="0.05" value="1.15" />
+      <label for="ink-weight"><span>主版墨線與稜線</span><span id="ink-weight-val">1.20</span></label>
+      <input id="ink-weight" type="range" min="0" max="2.0" step="0.05" value="1.20" />
     </div>
     <div class="ctrl">
-      <label for="wood-relief"><span>木版雕刻凹凸</span><span id="wood-relief-val">0.95</span></label>
-      <input id="wood-relief" type="range" min="0" max="1.8" step="0.05" value="0.95" />
+      <label for="wood-relief"><span>木版雕刻凹凸</span><span id="wood-relief-val">1.05</span></label>
+      <input id="wood-relief" type="range" min="0" max="1.8" step="0.05" value="1.05" />
     </div>
     <div class="ctrl">
       <label for="sun-elev"><span>日照仰角（夕映）</span><span id="sun-elev-val">26°</span></label>
@@ -197,7 +195,7 @@
     <div class="preset-grid">
       <button class="ui-btn" id="view-photo" type="button">原圖構圖</button>
       <button class="ui-btn" id="view-fuji" type="button">遠眺富士</button>
-      <button class="ui-btn" id="view-low" type="button">仰望鐵塔</button>
+      <button class="ui-btn" id="view-low" type="button">街區仰望</button>
     </div>
     <div class="btn-row">
       <button class="ui-btn" id="auto-rot" type="button">自動巡遊：關</button>
@@ -261,17 +259,16 @@
       const ctx = canvas.getContext('2d');
 
       const grad = ctx.createLinearGradient(0, 0, 0, h);
-      grad.addColorStop(0.00, '#0d2b49'); // 濃藍染
-      grad.addColorStop(0.24, '#1b507c'); // 普魯士藍（ベロ藍）
-      grad.addColorStop(0.48, '#4688ad'); // 淺蔥藍
-      grad.addColorStop(0.68, '#95c0d1'); // 暈染過渡
-      grad.addColorStop(0.79, '#f1e5cb'); // 和紙地平線暖光
-      grad.addColorStop(0.89, '#e4cea3'); // 黃土金霞
+      grad.addColorStop(0.00, '#0d2b49');
+      grad.addColorStop(0.24, '#1b507c');
+      grad.addColorStop(0.48, '#4688ad');
+      grad.addColorStop(0.68, '#95c0d1');
+      grad.addColorStop(0.79, '#f1e5cb');
+      grad.addColorStop(0.89, '#e4cea3');
       grad.addColorStop(1.00, '#9eb5c4');
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, w, h);
 
-      // 木版畫水平拓印刷紋（Baren Marks）與和紙纖維
       for (let y = 0; y < h; y += 2) {
         ctx.fillStyle = y % 4 === 0 ? 'rgba(255,248,230,0.045)' : 'rgba(12,24,38,0.045)';
         ctx.fillRect(0, y, w, 1);
@@ -293,18 +290,17 @@
     );
     scene.add(skyDome);
 
-    // --- 浮世繪版畫建築 PBR 材質產生器 ---
-    function createUkiyoBuildingPBR({
-      wallHex,
-      trimHex,
-      glassHex,
+    // --- 新版畫風格現代建築 PBR 貼圖產生器 ---
+    // 結合：1) 牆面上下「ぼかし」漸層  2) 木刻排線（Woodcut Hatching）窗帶  3) 雲母摺（Kirazuri）珠光顆粒
+    function createShinHangaBuildingPBR({
+      wallTopHex,
+      wallBotHex,
+      windowBandHex,
+      windowHighlightHex,
       glowHex,
-      cols = 6,
-      rows = 12,
-      seed = 1,
-      glassMetal = 0.72,
-      glassRough = 0.16,
-      wallRough = 0.80
+      rows = 10,
+      isCurtainWall = false,
+      seed = 1
     }) {
       const size = 512;
       const cAlbedo = document.createElement('canvas');
@@ -322,80 +318,110 @@
       const ctxB = cBump.getContext('2d');
       const ctxE = cEmissive.getContext('2d');
 
-      ctxA.fillStyle = wallHex;
+      // 1. 牆面「ぼかし」上下漸層（頂部日照和紙暖色 -> 底部藍墨冷霧）
+      const wallGrad = ctxA.createLinearGradient(0, 0, 0, size);
+      wallGrad.addColorStop(0.0, wallTopHex);
+      wallGrad.addColorStop(0.65, wallTopHex);
+      wallGrad.addColorStop(1.0, wallBotHex);
+      ctxA.fillStyle = wallGrad;
       ctxA.fillRect(0, 0, size, size);
 
-      const wr = Math.round(wallRough * 255);
-      ctxR.fillStyle = `rgb(${wr},${wr},${wr})`;
+      // 基底 PBR 粗糙度與和紙凹凸
+      ctxR.fillStyle = isCurtainWall ? 'rgb(95,95,95)' : 'rgb(212,212,212)';
       ctxR.fillRect(0, 0, size, size);
-
-      ctxM.fillStyle = 'rgb(20,20,20)';
+      ctxM.fillStyle = isCurtainWall ? 'rgb(145,145,145)' : 'rgb(22,22,22)';
       ctxM.fillRect(0, 0, size, size);
-
-      ctxB.fillStyle = 'rgb(148,148,148)';
+      ctxB.fillStyle = 'rgb(145,145,145)';
       ctxB.fillRect(0, 0, size, size);
-
       ctxE.fillStyle = 'rgb(0,0,0)';
       ctxE.fillRect(0, 0, size, size);
 
-      // 木版雕刻細橫紋與和紙纖維
+      // 2. 木版橫向木理雕刻線（Baren & Woodgrain）
       for (let y = 0; y < size; y += 2) {
-        const wave = Math.sin(y * 0.16 + seed) * 16;
-        ctxA.fillStyle = y % 4 === 0 ? 'rgba(255,246,225,0.07)' : 'rgba(18,26,36,0.07)';
-        ctxA.fillRect(0, y, size, 1.3);
-        const bv = Math.max(0, Math.min(255, Math.round(148 + wave)));
+        const wave = Math.sin(y * 0.18 + seed) * 18;
+        ctxA.fillStyle = y % 4 === 0 ? 'rgba(255,248,232,0.08)' : 'rgba(16,26,38,0.08)';
+        ctxA.fillRect(0, y, size, 1.4);
+        const bv = Math.max(0, Math.min(255, Math.round(145 + wave)));
         ctxB.fillStyle = `rgb(${bv},${bv},${bv})`;
         ctxB.fillRect(0, y, size, 1.5);
       }
 
-      const padX = size / cols;
-      const padY = size / rows;
-      const winW = padX * 0.62;
-      const winH = padY * 0.56;
-      const gr = Math.round(glassRough * 255);
-      const gm = Math.round(glassMetal * 255);
+      // 3. 雲母摺（Kirazuri）微光顆粒噪點：打散玻璃與牆面的現代數位平滑反光
+      for (let i = 0; i < 1800; i++) {
+        const mx = (i * 97 + seed * 31) % size;
+        const my = (i * 151 + seed * 17) % size;
+        const mSize = (i % 3) + 1;
+        ctxR.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.22)' : 'rgba(30,30,30,0.22)';
+        ctxR.fillRect(mx, my, mSize, mSize);
+        if (isCurtainWall && i % 3 === 0) {
+          ctxM.fillStyle = 'rgba(235,235,235,0.35)';
+          ctxM.fillRect(mx, my, mSize, mSize);
+        }
+      }
+
+      // 4. 新版畫「橫向窗帶 + 手工木刻排線（Woodcut Hatching）」取代呆板網格
+      const rowH = size / rows;
+      const bandH = rowH * (isCurtainWall ? 0.62 : 0.48);
 
       for (let r = 0; r < rows; r++) {
-        ctxA.fillStyle = trimHex;
-        ctxA.fillRect(0, r * padY, size, 2.5);
-        ctxB.fillStyle = 'rgb(80,80,80)';
-        ctxB.fillRect(0, r * padY, size, 2.5);
+        const yTop = r * rowH + (rowH - bandH) * 0.52;
 
-        for (let c = 0; c < cols; c++) {
-          const x = c * padX + (padX - winW) * 0.5;
-          const y = r * padY + (padY - winH) * 0.55;
+        // 樓層主版墨線分隔線（帶手工粗細起伏）
+        ctxA.fillStyle = '#121d2b';
+        ctxA.fillRect(0, r * rowH, size, 2.4);
+        ctxB.fillStyle = 'rgb(75,75,75)';
+        ctxB.fillRect(0, r * rowH, size, 2.4);
 
-          // 主版墨線窗框
-          ctxA.fillStyle = '#131e2b';
-          ctxA.fillRect(x - 2, y - 2, winW + 4, winH + 4);
+        // 橫向窗帶底色（普魯士藍或深靛墨色）
+        const padX = isCurtainWall ? 10 : 22;
+        const bandW = size - padX * 2;
+        ctxA.fillStyle = '#121d2b';
+        ctxA.fillRect(padX - 2, yTop - 2, bandW + 4, bandH + 4);
 
-          // 玻璃本體
-          ctxA.fillStyle = glassHex;
-          ctxA.fillRect(x, y, winW, winH);
+        ctxA.fillStyle = windowBandHex;
+        ctxA.fillRect(padX, yTop, bandW, bandH);
 
-          // 浮世繪版畫斜向高光筆觸
-          ctxA.fillStyle = 'rgba(247, 238, 216, 0.30)';
+        // 窗帶上的新版畫斜向刷色高光
+        ctxA.fillStyle = windowHighlightHex;
+        ctxA.globalAlpha = 0.34;
+        for (let sx = padX; sx < padX + bandW; sx += 56) {
           ctxA.beginPath();
-          ctxA.moveTo(x, y + winH * 0.65);
-          ctxA.lineTo(x + winW * 0.55, y);
-          ctxA.lineTo(x + winW * 0.85, y);
-          ctxA.lineTo(x, y + winH * 0.95);
+          ctxA.moveTo(sx, yTop + bandH);
+          ctxA.lineTo(sx + 24, yTop);
+          ctxA.lineTo(sx + 38, yTop);
+          ctxA.lineTo(sx + 14, yTop + bandH);
           ctxA.closePath();
           ctxA.fill();
+        }
+        ctxA.globalAlpha = 1.0;
 
-          ctxR.fillStyle = `rgb(${gr},${gr},${gr})`;
-          ctxR.fillRect(x, y, winW, winH);
+        // 木刻垂直刀痕排線（模擬雕刻師在窗帶刻出的陰影密度）
+        ctxA.fillStyle = '#101a26';
+        ctxB.fillStyle = 'rgb(52,52,52)';
+        const stepX = isCurtainWall ? 12 : 16;
+        for (let hx = padX + 6; hx < padX + bandW - 4; hx += stepX) {
+          const jitter = Math.sin(hx * 0.3 + r) * 1.5;
+          const lineW = ((hx + r) % 3 === 0) ? 2.6 : 1.5;
+          ctxA.fillRect(hx + jitter, yTop, lineW, bandH);
+          ctxB.fillRect(hx + jitter, yTop, lineW, bandH);
+        }
 
-          ctxM.fillStyle = `rgb(${gm},${gm},${gm})`;
-          ctxM.fillRect(x, y, winW, winH);
+        // PBR 窗帶玻璃質感（低粗糙度 + 雲母金屬反射）
+        ctxR.fillStyle = 'rgb(46,46,46)';
+        ctxR.fillRect(padX, yTop, bandW, bandH);
+        ctxM.fillStyle = 'rgb(195,195,195)';
+        ctxM.fillRect(padX, yTop, bandW, bandH);
 
-          ctxB.fillStyle = 'rgb(60,60,60)';
-          ctxB.fillRect(x, y, winW, winH);
-
-          const hVal = ((r * 31 + c * 17 + seed * 13) % 19);
-          if (hVal === 0 || hVal === 5) {
+        // 偶爾透出的江戶暖黃燈火色塊
+        for (let lx = padX + 18; lx < padX + bandW - 28; lx += 64) {
+          const hash = (r * 23 + lx * 7 + seed * 11) % 17;
+          if (hash === 0 || hash === 4) {
             ctxE.fillStyle = glowHex;
-            ctxE.fillRect(x + 1, y + 1, winW - 2, winH - 2);
+            ctxE.fillRect(lx, yTop + 2, 22, bandH - 4);
+            ctxA.fillStyle = glowHex;
+            ctxA.globalAlpha = 0.55;
+            ctxA.fillRect(lx, yTop + 2, 22, bandH - 4);
+            ctxA.globalAlpha = 1.0;
           }
         }
       }
@@ -421,10 +447,10 @@
         bumpMap,
         emissiveMap,
         emissive: new THREE.Color('#ffbe6b'),
-        emissiveIntensity: 0.42,
+        emissiveIntensity: 0.45,
         roughness: 1.0,
         metalness: 1.0,
-        bumpScale: 0.95
+        bumpScale: 1.05
       });
     }
 
@@ -476,8 +502,34 @@
         bumpMap,
         metalness,
         roughness: 1.0,
-        bumpScale: 0.95
+        bumpScale: 1.05
       });
+    }
+
+    // --- 直式江戶看板貼圖產生器 ---
+    function createVerticalSignMaterial(textChars, bgHex, textHex) {
+      const c = document.createElement('canvas');
+      c.width = 64;
+      c.height = 256;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = bgHex;
+      ctx.fillRect(0, 0, 64, 256);
+
+      ctx.strokeStyle = '#121d2b';
+      ctx.lineWidth = 6;
+      ctx.strokeRect(3, 3, 58, 250);
+
+      ctx.fillStyle = textHex;
+      ctx.font = 'bold 34px "Noto Serif TC", "PingFang TC", serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      textChars.forEach((ch, idx) => {
+        ctx.fillText(ch, 32, 46 + idx * 54);
+      });
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return new THREE.MeshStandardMaterial({ map: tex, roughness: 0.65, metalness: 0.12 });
     }
 
     // --- PMREM 環境貼圖 ---
@@ -492,13 +544,13 @@
     coolPanel.lookAt(0, 0, 0);
     envScene.add(warmPanel, coolPanel);
     scene.environment = pmremGen.fromScene(envScene, 0.04).texture;
-    scene.environmentIntensity = 0.82;
+    scene.environmentIntensity = 0.85;
 
-    // --- 光源 ---
-    const hemiLight = new THREE.HemisphereLight('#a7cfe4', '#4d3e31', 0.92);
+    // --- 光源設定：強化日照暖光與藍墨陰影對比 ---
+    const hemiLight = new THREE.HemisphereLight('#b5d8ea', '#253c52', 0.88);
     scene.add(hemiLight);
 
-    const sunLight = new THREE.DirectionalLight('#ffedd0', 2.6);
+    const sunLight = new THREE.DirectionalLight('#ffebd0', 2.75);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.set(2048, 2048);
     sunLight.shadow.camera.near = 15;
@@ -511,13 +563,20 @@
     sunLight.shadow.bias = -0.00045;
     scene.add(sunLight);
 
-    // --- 主版墨線（Sumi Ink）描邊系統 ---
+    // --- 主版墨線（Sumi Ink）描邊 + 建築轉折稜線系統 ---
     const inkOutlineMat = new THREE.MeshBasicMaterial({
       color: '#101a26',
       side: THREE.BackSide
     });
+    const inkEdgeLineMat = new THREE.LineBasicMaterial({
+      color: '#101a26',
+      transparent: true,
+      opacity: 0.92
+    });
 
     const outlineMeshes = [];
+    const edgeLineMeshes = [];
+
     function attachInkOutline(mesh, scaleFactor = 1.02) {
       const outline = new THREE.Mesh(mesh.geometry, inkOutlineMat);
       outline.scale.setScalar(scaleFactor);
@@ -525,6 +584,15 @@
       mesh.add(outline);
       outlineMeshes.push(outline);
       return outline;
+    }
+
+    function attachBuildingInkEdges(mesh, scaleFactor = 1.02) {
+      attachInkOutline(mesh, scaleFactor);
+      const edgesGeo = new THREE.EdgesGeometry(mesh.geometry, 25);
+      const lineSeg = new THREE.LineSegments(edgesGeo, inkEdgeLineMat);
+      lineSeg.scale.setScalar(1.003);
+      mesh.add(lineSeg);
+      edgeLineMeshes.push(lineSeg);
     }
 
     // --- 核心材質 ---
@@ -558,8 +626,8 @@
 
     // --- 地盤與東京灣海波 ---
     const groundMat = createWoodblockMaterial({
-      baseHex: '#2c3b47',
-      veinHex: '#151f28',
+      baseHex: '#283846',
+      veinHex: '#131d26',
       seed: 19,
       metalness: 0.06,
       minRough: 0.72,
@@ -610,7 +678,7 @@
     bayMesh.position.y = -0.2;
     scene.add(bayMesh);
 
-    // --- 遠眺富士山：具優雅凹弧「腰身」與「微平火山口」的浮世繪山形 ---
+    // --- 遠眺富士山（具優雅凹弧腰身與平頂火山口） ---
     function createFujiTexture() {
       const w = 512, h = 256;
       const c = document.createElement('canvas');
@@ -618,7 +686,6 @@
       c.height = h;
       const ctx = c.getContext('2d');
 
-      // 山體藍染漸層（普魯士藍至深靛色）
       const grad = ctx.createLinearGradient(0, 0, 0, h);
       grad.addColorStop(0.00, '#1d4970');
       grad.addColorStop(0.45, '#275c87');
@@ -627,7 +694,6 @@
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, w, h);
 
-      // 木版雕刻山脊縱向線條
       for (let i = 0; i < 64; i++) {
         const sx = (i / 64) * w;
         ctx.strokeStyle = i % 2 === 0 ? 'rgba(14, 32, 52, 0.28)' : 'rgba(245, 236, 216, 0.14)';
@@ -638,7 +704,6 @@
         ctx.stroke();
       }
 
-      // 北齋版畫風格：山頂積雪與指狀雪溪（Snow Fingers）
       ctx.fillStyle = '#f6efe0';
       ctx.beginPath();
       ctx.moveTo(0, 0);
@@ -652,7 +717,6 @@
       ctx.closePath();
       ctx.fill();
 
-      // 積雪下緣主版墨線勾勒
       ctx.strokeStyle = '#122234';
       ctx.lineWidth = 2.4;
       ctx.beginPath();
@@ -670,21 +734,18 @@
       return tex;
     }
 
-    // 建構富士山剖面曲線（有明顯腰身 + 頂部微平火山口）
     const fujiPoints = [];
     const fujiH = 68;
     const fujiBaseR = 132;
-    const fujiTopR = 15.5; // 頂部微平的寬度
+    const fujiTopR = 15.5;
     const steps = 32;
     for (let i = 0; i <= steps; i++) {
-      const t = i / steps; // 0 = 山腳, 1 = 山頂
-      // 凹弧腰身公式：山腳平緩展開，中段收束出優雅曲線，頂端收斂至平頂火山口
+      const t = i / steps;
       const curve = Math.pow(1 - t, 2.35);
       const r = fujiTopR + (fujiBaseR - fujiTopR) * curve;
       const y = t * fujiH;
       fujiPoints.push(new THREE.Vector2(r, y));
     }
-    // 火山口頂緣微平並略向內凹（表現平頂火山口）
     fujiPoints.push(new THREE.Vector2(fujiTopR * 0.72, fujiH + 0.35));
     fujiPoints.push(new THREE.Vector2(0, fujiH - 1.4));
 
@@ -699,7 +760,7 @@
     fujiMesh.position.set(-255, -0.5, -315);
     scene.add(fujiMesh);
 
-    // --- 東京鐵塔建模（18 層交叉桁架 + 雙展望台） ---
+    // --- 東京鐵塔建模 ---
     const towerGroup = new THREE.Group();
     const towerH = 82;
     const shaftH = towerH * 0.77;
@@ -723,7 +784,7 @@
       pier.position.set(sx * baseR, 1.1, sz * baseR);
       pier.castShadow = true;
       pier.receiveShadow = true;
-      attachInkOutline(pier, 1.04);
+      attachBuildingInkEdges(pier, 1.04);
       towerGroup.add(pier);
     });
 
@@ -800,18 +861,17 @@
     );
     deckLower.position.y = mainDeckY - 1.1;
     deckLower.castShadow = true;
-    attachInkOutline(deckLower, 1.028);
+    attachBuildingInkEdges(deckLower, 1.028);
 
-    const deckGlassMat = createUkiyoBuildingPBR({
-      wallHex: '#f4ead5',
-      trimHex: '#15212e',
-      glassHex: '#254e70',
+    const deckGlassMat = createShinHangaBuildingPBR({
+      wallTopHex: '#f4ead5',
+      wallBotHex: '#c8bba0',
+      windowBandHex: '#1b476e',
+      windowHighlightHex: '#f6eedc',
       glowHex: '#ffcf75',
-      cols: 10,
       rows: 2,
-      seed: 77,
-      glassMetal: 0.78,
-      glassRough: 0.14
+      isCurtainWall: true,
+      seed: 77
     });
     const deckCabin = new THREE.Mesh(
       new THREE.BoxGeometry(mainDeckSpan, 2.3, mainDeckSpan),
@@ -819,14 +879,14 @@
     );
     deckCabin.position.y = mainDeckY + 0.55;
     deckCabin.castShadow = true;
-    attachInkOutline(deckCabin, 1.025);
+    attachBuildingInkEdges(deckCabin, 1.025);
 
     const deckRoof = new THREE.Mesh(
       new THREE.BoxGeometry(mainDeckSpan * 1.06, 0.65, mainDeckSpan * 1.06),
       towerWhiteMat
     );
     deckRoof.position.y = mainDeckY + 1.95;
-    attachInkOutline(deckRoof, 1.028);
+    attachBuildingInkEdges(deckRoof, 1.028);
     towerGroup.add(deckLower, deckCabin, deckRoof);
 
     // 特別展望台
@@ -838,14 +898,14 @@
     );
     topDeck.position.y = topDeckY;
     topDeck.castShadow = true;
-    attachInkOutline(topDeck, 1.038);
+    attachBuildingInkEdges(topDeck, 1.038);
 
     const topDeckCap = new THREE.Mesh(
       new THREE.BoxGeometry(topDeckSpan * 1.12, 0.5, topDeckSpan * 1.12),
       towerRedMat
     );
     topDeckCap.position.y = topDeckY + 1.25;
-    attachInkOutline(topDeckCap, 1.038);
+    attachBuildingInkEdges(topDeckCap, 1.038);
     towerGroup.add(topDeck, topDeckCap);
 
     // 頂部紅白發射天線
@@ -875,7 +935,7 @@
     towerGroup.add(beaconMesh);
     scene.add(towerGroup);
 
-    // --- 芝公園綠樹與紅葉林帶（鐵塔周圍緊貼地面的低矮林叢） ---
+    // --- 芝公園綠樹與紅葉林帶 ---
     const parkGroup = new THREE.Group();
     const foliageMats = [
       createWoodblockMaterial({ baseHex: '#244a35', veinHex: '#0e2217', seed: 51, metalness: 0.04, minRough: 0.75, maxRough: 0.92, repeat: 2 }),
@@ -935,38 +995,59 @@
         const pt = curve.getPoint(t);
         const pillar = new THREE.Mesh(new THREE.BoxGeometry(1.0, pt.y, 1.0), stonePierMat);
         pillar.position.set(pt.x, pt.y * 0.5, pt.z);
-        attachInkOutline(pillar, 1.04);
+        attachBuildingInkEdges(pillar, 1.04);
         roadGroup.add(pillar);
       }
     });
     scene.add(roadGroup);
 
-    // --- 都市建築群（嚴格依照片比例：塔周邊低矮錯落，遠方地平線才出現高樓天際線） ---
+    // --- 江戶限制色票 · 新版畫都市建築群 ---
+    // 收斂為：生成り和紙白、普魯士藍玻璃帷幕、弁柄赭紅、利休鼠灰綠、藍墨深青
     const bldgStyleConfigs = [
-      { wallHex: '#eee3ce', trimHex: '#15212e', glassHex: '#2c587a', glowHex: '#ffd178', cols: 6, rows: 10, seed: 101 },
-      { wallHex: '#35536b', trimHex: '#101a24', glassHex: '#6396b8', glowHex: '#ffe099', cols: 8, rows: 16, seed: 102 },
-      { wallHex: '#cfc0a6', trimHex: '#1b2633', glassHex: '#23445e', glowHex: '#ffbe66', cols: 5, rows: 9, seed: 103 },
-      { wallHex: '#1f364a', trimHex: '#0d1620', glassHex: '#4b7fa3', glowHex: '#ffd885', cols: 7, rows: 15, seed: 104 },
-      { wallHex: '#dfd2bc', trimHex: '#15212e', glassHex: '#326285', glowHex: '#ffc970', cols: 6, rows: 8, seed: 105 }
+      // 1. 生成り和紙白牆 + 藍墨木刻窗帶
+      { wallTopHex: '#f2e6cf', wallBotHex: '#b8b6ad', windowBandHex: '#1d3c59', windowHighlightHex: '#f7eedc', glowHex: '#ffd178', rows: 8, isCurtainWall: false, seed: 101 },
+      // 2. 普魯士藍玻璃帷幕大樓（雲母摺光澤）
+      { wallTopHex: '#255278', wallBotHex: '#132b42', windowBandHex: '#4f86ab', windowHighlightHex: '#f5ebd6', glowHex: '#ffe099', rows: 14, isCurtainWall: true, seed: 102 },
+      // 3. 利休鼠（江戶灰綠）石材大樓
+      { wallTopHex: '#a5ab9c', wallBotHex: '#63737a', windowBandHex: '#183147', windowHighlightHex: '#ebe0ca', glowHex: '#ffbe66', rows: 9, isCurtainWall: false, seed: 103 },
+      // 4. 濃藍染玻璃高樓
+      { wallTopHex: '#193754', wallBotHex: '#0f2133', windowBandHex: '#3c7196', windowHighlightHex: '#f4ead5', glowHex: '#ffd885', rows: 15, isCurtainWall: true, seed: 104 },
+      // 5. 弁柄赭紅（Bengara）和洋折衷磚造樓
+      { wallTopHex: '#b85c44', wallBotHex: '#6e3836', windowBandHex: '#162738', windowHighlightHex: '#f2e4c8', glowHex: '#ffc970', rows: 7, isCurtainWall: false, seed: 105 }
     ];
-    const bldgMaterials = bldgStyleConfigs.map((cfg) => createUkiyoBuildingPBR(cfg));
+    const bldgMaterials = bldgStyleConfigs.map((cfg) => createShinHangaBuildingPBR(cfg));
+
+    const signMaterials = [
+      createVerticalSignMaterial(['東', '都', '電', '氣'], '#d44228', '#f6eddb'),
+      createVerticalSignMaterial(['芝', '浦', '商', '會'], '#1b4b73', '#f6eddb'),
+      createVerticalSignMaterial(['富', '士', '銀', '行'], '#f4ead5', '#15212e'),
+      createVerticalSignMaterial(['江', '戶', '麥', '酒'], '#244a35', '#f6eddb')
+    ];
 
     const cityGroup = new THREE.Group();
     const boxGeo = new THREE.BoxGeometry(1, 1, 1);
 
-    function addBuilding({ x, z, w, h, d, rotY = 0, matIdx = 0, hasSetback = false }) {
+    function addBuilding({ x, z, w, h, d, rotY = 0, matIdx = 0, hasSetback = false, detailSeed = 0 }) {
       const mat = bldgMaterials[matIdx % bldgMaterials.length];
       const bldg = new THREE.Group();
       bldg.position.set(x, 0, z);
       bldg.rotation.y = rotY;
 
+      // 主樓體（含反轉法線墨線 + EdgesGeometry 轉折稜線墨線）
       const mainBody = new THREE.Mesh(boxGeo, mat);
       mainBody.scale.set(w, h, d);
       mainBody.position.y = h * 0.5;
       mainBody.castShadow = true;
       mainBody.receiveShadow = true;
-      attachInkOutline(mainBody, 1.018);
+      attachBuildingInkEdges(mainBody, 1.018);
       bldg.add(mainBody);
+
+      // 屋簷女兒牆（墨線壓頂，強化版畫結構感）
+      const parapet = new THREE.Mesh(boxGeo, towerWhiteMat);
+      parapet.scale.set(w + 0.25, 0.32, d + 0.25);
+      parapet.position.y = h + 0.16;
+      attachBuildingInkEdges(parapet, 1.022);
+      bldg.add(parapet);
 
       if (hasSetback && h > 18) {
         const topH = h * 0.2;
@@ -974,23 +1055,53 @@
         upperBody.scale.set(w * 0.68, topH, d * 0.68);
         upperBody.position.y = h + topH * 0.5;
         upperBody.castShadow = true;
-        attachInkOutline(upperBody, 1.022);
+        attachBuildingInkEdges(upperBody, 1.022);
         bldg.add(upperBody);
+
+        // 避雷針天線
+        const spire = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.12, 3.6, 6), towerWhiteMat);
+        spire.position.y = h + topH + 1.8;
+        bldg.add(spire);
       } else {
-        const mech = new THREE.Mesh(boxGeo, stonePierMat);
-        mech.scale.set(w * 0.34, 0.85, d * 0.34);
-        mech.position.set(0, h + 0.42, 0);
-        attachInkOutline(mech, 1.03);
-        bldg.add(mech);
+        // 昭和／江戶都市屋頂細節：水塔、朱紅鋼架招牌或機電屋
+        const mode = Math.floor(detailSeed * 10) % 4;
+        if (mode === 0 && h > 6) {
+          // 屋頂朱紅鋼架招牌（昭和東京天際線經典元素）
+          const signBoard = new THREE.Mesh(new THREE.BoxGeometry(w * 0.65, 1.8, 0.28), towerRedMat);
+          signBoard.position.set(0, h + 1.4, 0);
+          attachBuildingInkEdges(signBoard, 1.03);
+          bldg.add(signBoard);
+        } else if (mode === 1) {
+          // 圓筒和紙白水塔
+          const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.75, 1.5, 12), towerWhiteMat);
+          tank.position.set(w * 0.2, h + 1.05, d * 0.2);
+          attachInkOutline(tank, 1.04);
+          bldg.add(tank);
+        } else {
+          const mech = new THREE.Mesh(boxGeo, stonePierMat);
+          mech.scale.set(w * 0.34, 0.85, d * 0.34);
+          mech.position.set(0, h + 0.65, 0);
+          attachBuildingInkEdges(mech, 1.03);
+          bldg.add(mech);
+        }
       }
+
+      // 部分中層街屋側面加掛直式漢字看板
+      if (h >= 7.5 && h <= 16 && detailSeed > 0.68) {
+        const signMat = signMaterials[Math.floor(detailSeed * 20) % signMaterials.length];
+        const signH = Math.min(4.6, h * 0.52);
+        const vSign = new THREE.Mesh(new THREE.BoxGeometry(0.24, signH, 1.15), signMat);
+        vSign.position.set(w * 0.5 + 0.42, h * 0.62, 0);
+        attachBuildingInkEdges(vSign, 1.04);
+        bldg.add(vSign);
+      }
+
       cityGroup.add(bldg);
     }
 
-    // 還原照片中的地標性低矮建築：
-    // 1. 鐵塔左後方白色長條橫向建築（東京王子大飯店輪廓）
-    addBuilding({ x: -24, z: -22, w: 19, h: 6.2, d: 6.5, rotY: 0.08, matIdx: 0 });
-    // 2. 鐵塔右前方白色方正中層建築
-    addBuilding({ x: 14, z: 22, w: 10.5, h: 11.2, d: 9.5, rotY: 0.35, matIdx: 0 });
+    // 還原照片中的地標性低矮建築
+    addBuilding({ x: -24, z: -22, w: 19, h: 6.2, d: 6.5, rotY: 0.08, matIdx: 0, detailSeed: 0.2 });
+    addBuilding({ x: 14, z: 22, w: 10.5, h: 11.2, d: 9.5, rotY: 0.35, matIdx: 0, detailSeed: 0.82 });
 
     for (let i = 0; i < 235; i++) {
       const angle = rand() * Math.PI * 2;
@@ -998,7 +1109,6 @@
       const x = Math.cos(angle) * dist;
       const z = Math.sin(angle) * dist;
 
-      // 避開道路與地標建築
       if (Math.abs(z - 33) < 5.0 && Math.abs(x) < 105) continue;
       if (Math.abs(x + 33) < 5.0 && Math.abs(z) < 105) continue;
       if (Math.hypot(x + 24, z + 22) < 13) continue;
@@ -1007,9 +1117,6 @@
       const w = 4.2 + rand() * 8.5;
       const d = 4.2 + rand() * 8.5;
 
-      // 關鍵比例控制：
-      // 近圈（dist < 72）：低矮至中低層樓（高 3.5 ~ 13.5），絕不遮擋鐵塔腰身與展望台
-      // 遠圈（dist >= 72）：遠方地平線摩天樓天際線（高 14 ~ 38）
       let h;
       if (dist < 72) {
         h = 3.5 + rand() * 9.5;
@@ -1026,12 +1133,13 @@
         d,
         rotY: (Math.floor(rand() * 4) * Math.PI) / 2 + (rand() - 0.5) * 0.08,
         matIdx: Math.floor(rand() * bldgMaterials.length),
-        hasSetback: dist > 85 && rand() > 0.4
+        hasSetback: dist > 85 && rand() > 0.4,
+        detailSeed: rand()
       });
     }
     scene.add(cityGroup);
 
-    // --- 酥鬆棉花團狀浮世繪積雲（Fluffy Cotton-Ball Ukiyo-e Clouds） ---
+    // --- 酥鬆棉花團狀浮世繪積雲 ---
     const cloudGroup = new THREE.Group();
     const cottonCloudMat = createWoodblockMaterial({
       baseHex: '#f8f0de',
@@ -1043,12 +1151,10 @@
       repeat: 2
     });
 
-    // 建構立體棉花團雲朵（平底 + 多顆蓬鬆圓球交疊 + 墨線輪廓）
     function createCottonCumulusCluster(scaleSize, yPos, xPos, zPos) {
       const cluster = new THREE.Group();
       const puffGeo = new THREE.IcosahedronGeometry(1, 3);
 
-      // 將球體下半部略微壓平，形成浮世繪雲朵特有的「平底蓬頂」棉花團造型
       const posAttr = puffGeo.attributes.position;
       for (let i = 0; i < posAttr.count; i++) {
         const py = posAttr.getY(i);
@@ -1060,8 +1166,7 @@
 
       const puffCount = 9 + Math.floor(rand() * 5);
       for (let i = 0; i < puffCount; i++) {
-        const t = (i / (puffCount - 1)) - 0.5; // -0.5 ~ 0.5 橫向展佈
-        // 中間高聳蓬鬆、兩側漸低收圓
+        const t = (i / (puffCount - 1)) - 0.5;
         const arch = Math.cos(t * Math.PI * 0.88);
         const r = scaleSize * (0.38 + arch * 0.48 + (rand() - 0.5) * 0.16);
         const px = t * scaleSize * 2.5 + (rand() - 0.5) * scaleSize * 0.35;
@@ -1084,11 +1189,10 @@
       cloudGroup.add(cluster);
     }
 
-    // 雲團分佈於天空與富士山腰際，不遮擋鐵塔主視線
     const cumulusSpecs = [
       [11.5, 58, -68, -75],
       [9.5, 66, 62, -58],
-      [13.0, 52, -145, -185], // 富士山側方綿雲
+      [13.0, 52, -145, -185],
       [10.0, 62, 115, -135],
       [8.5, 68, -22, -130],
       [11.0, 56, 85, 42],
@@ -1097,9 +1201,8 @@
     cumulusSpecs.forEach((args) => createCottonCumulusCluster(...args));
     scene.add(cloudGroup);
 
-    // --- 相機球面軌道控制與原圖構圖預設 ---
+    // --- 相機球面軌道控制 ---
     const target = new THREE.Vector3(0, 25, 0);
-    // 預設視角對齊上傳照片的俯瞰構圖，同時可隱約看見遠方富士山
     const camState = { radius: 96, theta: 0.56, phi: 1.16 };
     let autoRotate = false;
     let cloudAnim = true;
@@ -1117,7 +1220,6 @@
     }
     updateCamera();
 
-    // 單指拖曳旋轉、雙指縮放
     const pointers = new Map();
     let prevPinchDist = null;
     let lastX = 0;
@@ -1198,6 +1300,10 @@
         const extra = (m.userData.baseScale - 1) * w;
         m.scale.setScalar(1 + extra);
       });
+      edgeLineMeshes.forEach((l) => {
+        l.visible = w > 0.01;
+      });
+      inkEdgeLineMat.opacity = Math.min(1, 0.45 + w * 0.4);
     }
 
     function syncWoodRelief() {
@@ -1243,7 +1349,7 @@
     });
 
     document.getElementById('view-low').addEventListener('click', () => {
-      target.set(0, 34, 0);
+      target.set(0, 22, 0);
       camState.radius = 48;
       camState.theta = 0.42;
       camState.phi = 1.44;
