@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>浮世繪東都鐵塔 · 寫實 PBR 建模</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #10253a;
+      font-family: "Noto Serif TC", "PingFang TC", "Microsoft JhengHei", serif;
+      touch-action: none;
+    }
+    #canvas-wrap {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+    /* 浮世繪版畫四邊墨線框與和紙肌理疊層（不阻擋觸控） */
+    .ukiyo-frame {
+      position: fixed;
+      inset: 8px;
+      border: 2px solid rgba(18, 28, 40, 0.72);
+      box-shadow: inset 0 0 0 1px rgba(244, 232, 206, 0.35), inset 0 0 42px rgba(235, 218, 184, 0.16);
+      pointer-events: none;
+      z-index: 5;
+    }
+    /* 浮世繪題籤（Cartouche） */
+    .ukiyo-stamp {
+      position: fixed;
+      top: 18px;
+      left: 18px;
+      z-index: 10;
+      padding: 8px 12px;
+      background: rgba(244, 233, 210, 0.92);
+      border: 2px solid #15212e;
+      box-shadow: 3px 3px 0 #15212e, inset 0 0 0 1px rgba(196, 62, 42, 0.65);
+      color: #15212e;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .seal {
+      width: 25px;
+      height: 25px;
+      border: 1.5px solid #c43e2a;
+      color: #c43e2a;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1.05;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .ukiyo-stamp h1 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+    }
+    .ukiyo-stamp p {
+      margin: 2px 0 0;
+      font-size: 10.5px;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif;
+      color: #364654;
+    }
+    #toggle-btn {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      z-index: 20;
+      padding: 8px 14px;
+      border: 2px solid #15212e;
+      box-shadow: 2px 2px 0 #15212e;
+      background: #f4e9d2;
+      color: #15212e;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+    }
+    #toggle-btn:active {
+      transform: translate(1px, 1px);
+      box-shadow: 1px 1px 0 #15212e;
+    }
+    #panel {
+      position: fixed;
+      top: 60px;
+      right: 18px;
+      width: min(286px, calc(100vw - 36px));
+      z-index: 19;
+      padding: 14px;
+      background: rgba(244, 233, 210, 0.95);
+      border: 2px solid #15212e;
+      box-shadow: 4px 4px 0 #15212e;
+      color: #15212e;
+      display: none;
+      flex-direction: column;
+      gap: 11px;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif;
+    }
+    #panel.open {
+      display: flex;
+    }
+    .ctrl {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .ctrl label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .ctrl input[type="range"] {
+      width: 100%;
+      accent-color: #c43e2a;
+      cursor: pointer;
+    }
+    .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+    .btn-row {
+      display: flex;
+      gap: 6px;
+    }
+    button.ui-btn {
+      flex: 1;
+      padding: 6px 8px;
+      border: 1.5px solid #15212e;
+      background: #ebe0c9;
+      color: #15212e;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button.ui-btn:active, button.ui-btn.active {
+      background: #c43e2a;
+      color: #f7eedc;
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-wrap"></div>
+  <div class="ukiyo-frame"></div>
+
+  <div class="ukiyo-stamp">
+    <div class="seal">富嶽<br>百景</div>
+    <div>
+      <h1>東都芝浦鐵塔遠眺富士</h1>
+      <p>木版畫風格 · 寫實 PBR 渲染管線</p>
+    </div>
+  </div>
+
+  <button id="toggle-btn" type="button" aria-expanded="false">設定</button>
+
+  <aside id="panel" aria-label="浮世繪與 PBR 參數">
+    <div class="ctrl">
+      <label for="ink-weight"><span>主版墨線濃淡</span><span id="ink-weight-val">1.15</span></label>
+      <input id="ink-weight" type="range" min="0" max="2.0" step="0.05" value="1.15" />
+    </div>
+    <div class="ctrl">
+      <label for="wood-relief"><span>木版雕刻凹凸</span><span id="wood-relief-val">0.95</span></label>
+      <input id="wood-relief" type="range" min="0" max="1.8" step="0.05" value="0.95" />
+    </div>
+    <div class="ctrl">
+      <label for="sun-elev"><span>日照仰角（夕映）</span><span id="sun-elev-val">26°</span></label>
+      <input id="sun-elev" type="range" min="6" max="72" value="26" />
+    </div>
+    <div class="ctrl">
+      <label for="sun-azim"><span>日照方位角</span><span id="sun-azim-val">52°</span></label>
+      <input id="sun-azim" type="range" min="-180" max="180" value="52" />
+    </div>
+    <div class="preset-grid">
+      <button class="ui-btn" id="view-photo" type="button">原圖構圖</button>
+      <button class="ui-btn" id="view-fuji" type="button">遠眺富士</button>
+      <button class="ui-btn" id="view-low" type="button">仰望鐵塔</button>
+    </div>
+    <div class="btn-row">
+      <button class="ui-btn" id="auto-rot" type="button">自動巡遊：關</button>
+      <button class="ui-btn" id="cloud-anim" type="button">雲團飄移：開</button>
+    </div>
+  </aside>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.170.0/build/three.module.js"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+
+    // --- 面板開關與點擊外部收合 ---
+    const toggleBtn = document.getElementById('toggle-btn');
+    const panel = document.getElementById('panel');
+
+    function setPanelOpen(open) {
+      panel.classList.toggle('open', open);
+      toggleBtn.setAttribute('aria-expanded', String(open));
+      toggleBtn.textContent = open ? '收合' : '設定';
+    }
+    toggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setPanelOpen(!panel.classList.contains('open'));
+    });
+    document.addEventListener('pointerdown', (e) => {
+      if (panel.classList.contains('open') && !panel.contains(e.target) && e.target !== toggleBtn) {
+        setPanelOpen(false);
+      }
+    });
+
+    // --- 寫實 PBR 渲染器 ---
+    const container = document.getElementById('canvas-wrap');
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.12;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2('#9bc2d4', 0.00145);
+
+    const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.5, 1100);
+
+    // --- 浮世繪「ぼかし（Bokashi）」普魯士藍漸層天空穹頂 ---
+    function createUkiyoSkyTexture() {
+      const w = 256, h = 512;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+
+      const grad = ctx.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0.00, '#0d2b49'); // 濃藍染
+      grad.addColorStop(0.24, '#1b507c'); // 普魯士藍（ベロ藍）
+      grad.addColorStop(0.48, '#4688ad'); // 淺蔥藍
+      grad.addColorStop(0.68, '#95c0d1'); // 暈染過渡
+      grad.addColorStop(0.79, '#f1e5cb'); // 和紙地平線暖光
+      grad.addColorStop(0.89, '#e4cea3'); // 黃土金霞
+      grad.addColorStop(1.00, '#9eb5c4');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      // 木版畫水平拓印刷紋（Baren Marks）與和紙纖維
+      for (let y = 0; y < h; y += 2) {
+        ctx.fillStyle = y % 4 === 0 ? 'rgba(255,248,230,0.045)' : 'rgba(12,24,38,0.045)';
+        ctx.fillRect(0, y, w, 1);
+      }
+      for (let i = 0; i < 2200; i++) {
+        const fx = (i * 79) % w;
+        const fy = (i * 149) % h;
+        ctx.fillStyle = i % 2 === 0 ? 'rgba(255,250,238,0.07)' : 'rgba(18,32,48,0.05)';
+        ctx.fillRect(fx, fy, 4, 1);
+      }
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    const skyDome = new THREE.Mesh(
+      new THREE.SphereGeometry(720, 36, 24),
+      new THREE.MeshBasicMaterial({ map: createUkiyoSkyTexture(), side: THREE.BackSide, depthWrite: false })
+    );
+    scene.add(skyDome);
+
+    // --- 浮世繪版畫建築 PBR 材質產生器 ---
+    function createUkiyoBuildingPBR({
+      wallHex,
+      trimHex,
+      glassHex,
+      glowHex,
+      cols = 6,
+      rows = 12,
+      seed = 1,
+      glassMetal = 0.72,
+      glassRough = 0.16,
+      wallRough = 0.80
+    }) {
+      const size = 512;
+      const cAlbedo = document.createElement('canvas');
+      const cRough = document.createElement('canvas');
+      const cMetal = document.createElement('canvas');
+      const cBump = document.createElement('canvas');
+      const cEmissive = document.createElement('canvas');
+      [cAlbedo, cRough, cMetal, cBump, cEmissive].forEach((c) => {
+        c.width = c.height = size;
+      });
+
+      const ctxA = cAlbedo.getContext('2d');
+      const ctxR = cRough.getContext('2d');
+      const ctxM = cMetal.getContext('2d');
+      const ctxB = cBump.getContext('2d');
+      const ctxE = cEmissive.getContext('2d');
+
+      ctxA.fillStyle = wallHex;
+      ctxA.fillRect(0, 0, size, size);
+
+      const wr = Math.round(wallRough * 255);
+      ctxR.fillStyle = `rgb(${wr},${wr},${wr})`;
+      ctxR.fillRect(0, 0, size, size);
+
+      ctxM.fillStyle = 'rgb(20,20,20)';
+      ctxM.fillRect(0, 0, size, size);
+
+      ctxB.fillStyle = 'rgb(148,148,148)';
+      ctxB.fillRect(0, 0, size, size);
+
+      ctxE.fillStyle = 'rgb(0,0,0)';
+      ctxE.fillRect(0, 0, size, size);
+
+      // 木版雕刻細橫紋與和紙纖維
+      for (let y = 0; y < size; y += 2) {
+        const wave = Math.sin(y * 0.16 + seed) * 16;
+        ctxA.fillStyle = y % 4 === 0 ? 'rgba(255,246,225,0.07)' : 'rgba(18,26,36,0.07)';
+        ctxA.fillRect(0, y, size, 1.3);
+        const bv = Math.max(0, Math.min(255, Math.round(148 + wave)));
+        ctxB.fillStyle = `rgb(${bv},${bv},${bv})`;
+        ctxB.fillRect(0, y, size, 1.5);
+      }
+
+      const padX = size / cols;
+      const padY = size / rows;
+      const winW = padX * 0.62;
+      const winH = padY * 0.56;
+      const gr = Math.round(glassRough * 255);
+      const gm = Math.round(glassMetal * 255);
+
+      for (let r = 0; r < rows; r++) {
+        ctxA.fillStyle = trimHex;
+        ctxA.fillRect(0, r * padY, size, 2.5);
+        ctxB.fillStyle = 'rgb(80,80,80)';
+        ctxB.fillRect(0, r * padY, size, 2.5);
+
+        for (let c = 0; c < cols; c++) {
+          const x = c * padX + (padX - winW) * 0.5;
+          const y = r * padY + (padY - winH) * 0.55;
+
+          // 主版墨線窗框
+          ctxA.fillStyle = '#131e2b';
+          ctxA.fillRect(x - 2, y - 2, winW + 4, winH + 4);
+
+          // 玻璃本體
+          ctxA.fillStyle = glassHex;
+          ctxA.fillRect(x, y, winW, winH);
+
+          // 浮世繪版畫斜向高光筆觸
+          ctxA.fillStyle = 'rgba(247, 238, 216, 0.30)';
+          ctxA.beginPath();
+          ctxA.moveTo(x, y + winH * 0.65);
+          ctxA.lineTo(x + winW * 0.55, y);
+          ctxA.lineTo(x + winW * 0.85, y);
+          ctxA.lineTo(x, y + winH * 0.95);
+          ctxA.closePath();
+          ctxA.fill();
+
+          ctxR.fillStyle = `rgb(${gr},${gr},${gr})`;
+          ctxR.fillRect(x, y, winW, winH);
+
+          ctxM.fillStyle = `rgb(${gm},${gm},${gm})`;
+          ctxM.fillRect(x, y, winW, winH);
+
+          ctxB.fillStyle = 'rgb(60,60,60)';
+          ctxB.fillRect(x, y, winW, winH);
+
+          const hVal = ((r * 31 + c * 17 + seed * 13) % 19);
+          if (hVal === 0 || hVal === 5) {
+            ctxE.fillStyle = glowHex;
+            ctxE.fillRect(x + 1, y + 1, winW - 2, winH - 2);
+          }
+        }
+      }
+
+      const map = new THREE.CanvasTexture(cAlbedo);
+      const roughnessMap = new THREE.CanvasTexture(cRough);
+      const metalnessMap = new THREE.CanvasTexture(cMetal);
+      const bumpMap = new THREE.CanvasTexture(cBump);
+      const emissiveMap = new THREE.CanvasTexture(cEmissive);
+      map.colorSpace = THREE.SRGBColorSpace;
+      emissiveMap.colorSpace = THREE.SRGBColorSpace;
+
+      [map, roughnessMap, metalnessMap, bumpMap, emissiveMap].forEach((t) => {
+        t.wrapS = THREE.RepeatWrapping;
+        t.wrapT = THREE.RepeatWrapping;
+        t.anisotropy = 4;
+      });
+
+      return new THREE.MeshStandardMaterial({
+        map,
+        roughnessMap,
+        metalnessMap,
+        bumpMap,
+        emissiveMap,
+        emissive: new THREE.Color('#ffbe6b'),
+        emissiveIntensity: 0.42,
+        roughness: 1.0,
+        metalness: 1.0,
+        bumpScale: 0.95
+      });
+    }
+
+    // --- 純木版和紙 PBR 材質 ---
+    function createWoodblockMaterial({ baseHex, veinHex, seed = 1, metalness = 0.25, minRough = 0.35, maxRough = 0.78, repeat = 3 }) {
+      const size = 256;
+      const cA = document.createElement('canvas');
+      const cR = document.createElement('canvas');
+      const cB = document.createElement('canvas');
+      cA.width = cR.width = cB.width = size;
+      cA.height = cR.height = cB.height = size;
+
+      const ctxA = cA.getContext('2d');
+      const ctxR = cR.getContext('2d');
+      const ctxB = cB.getContext('2d');
+
+      ctxA.fillStyle = baseHex;
+      ctxA.fillRect(0, 0, size, size);
+
+      for (let y = 0; y < size; y++) {
+        const n = Math.sin(y * 0.22 + seed) * 0.5 + 0.5;
+        ctxA.fillStyle = y % 3 === 0 ? veinHex : 'rgba(255,248,232,0.07)';
+        ctxA.globalAlpha = y % 3 === 0 ? 0.18 : 0.09;
+        ctxA.fillRect(0, y, size, 1.3);
+
+        const rv = Math.round(THREE.MathUtils.lerp(minRough, maxRough, n) * 255);
+        ctxR.fillStyle = `rgb(${rv},${rv},${rv})`;
+        ctxR.fillRect(0, y, size, 1);
+
+        const bv = Math.round(95 + n * 120);
+        ctxB.fillStyle = `rgb(${bv},${bv},${bv})`;
+        ctxB.fillRect(0, y, size, 1);
+      }
+      ctxA.globalAlpha = 1;
+
+      const map = new THREE.CanvasTexture(cA);
+      const roughnessMap = new THREE.CanvasTexture(cR);
+      const bumpMap = new THREE.CanvasTexture(cB);
+      map.colorSpace = THREE.SRGBColorSpace;
+      [map, roughnessMap, bumpMap].forEach((t) => {
+        t.wrapS = THREE.RepeatWrapping;
+        t.wrapT = THREE.RepeatWrapping;
+        t.repeat.set(repeat, repeat);
+      });
+
+      return new THREE.MeshStandardMaterial({
+        map,
+        roughnessMap,
+        bumpMap,
+        metalness,
+        roughness: 1.0,
+        bumpScale: 0.95
+      });
+    }
+
+    // --- PMREM 環境貼圖 ---
+    const pmremGen = new THREE.PMREMGenerator(renderer);
+    const envScene = new THREE.Scene();
+    envScene.background = new THREE.Color('#4a83a8');
+    const warmPanel = new THREE.Mesh(new THREE.PlaneGeometry(60, 22), new THREE.MeshBasicMaterial({ color: '#ffebd0' }));
+    warmPanel.position.set(35, 30, 35);
+    warmPanel.lookAt(0, 0, 0);
+    const coolPanel = new THREE.Mesh(new THREE.PlaneGeometry(70, 28), new THREE.MeshBasicMaterial({ color: '#17446e' }));
+    coolPanel.position.set(-40, 25, -30);
+    coolPanel.lookAt(0, 0, 0);
+    envScene.add(warmPanel, coolPanel);
+    scene.environment = pmremGen.fromScene(envScene, 0.04).texture;
+    scene.environmentIntensity = 0.82;
+
+    // --- 光源 ---
+    const hemiLight = new THREE.HemisphereLight('#a7cfe4', '#4d3e31', 0.92);
+    scene.add(hemiLight);
+
+    const sunLight = new THREE.DirectionalLight('#ffedd0', 2.6);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.set(2048, 2048);
+    sunLight.shadow.camera.near = 15;
+    sunLight.shadow.camera.far = 360;
+    const shD = 125;
+    sunLight.shadow.camera.left = -shD;
+    sunLight.shadow.camera.right = shD;
+    sunLight.shadow.camera.top = shD;
+    sunLight.shadow.camera.bottom = -shD;
+    sunLight.shadow.bias = -0.00045;
+    scene.add(sunLight);
+
+    // --- 主版墨線（Sumi Ink）描邊系統 ---
+    const inkOutlineMat = new THREE.MeshBasicMaterial({
+      color: '#101a26',
+      side: THREE.BackSide
+    });
+
+    const outlineMeshes = [];
+    function attachInkOutline(mesh, scaleFactor = 1.02) {
+      const outline = new THREE.Mesh(mesh.geometry, inkOutlineMat);
+      outline.scale.setScalar(scaleFactor);
+      outline.userData.baseScale = scaleFactor;
+      mesh.add(outline);
+      outlineMeshes.push(outline);
+      return outline;
+    }
+
+    // --- 核心材質 ---
+    const towerRedMat = createWoodblockMaterial({
+      baseHex: '#d94326',
+      veinHex: '#5e1409',
+      seed: 3,
+      metalness: 0.36,
+      minRough: 0.30,
+      maxRough: 0.56,
+      repeat: 4
+    });
+    const towerWhiteMat = createWoodblockMaterial({
+      baseHex: '#f6eddb',
+      veinHex: '#968b7a',
+      seed: 9,
+      metalness: 0.24,
+      minRough: 0.35,
+      maxRough: 0.62,
+      repeat: 4
+    });
+    const stonePierMat = createWoodblockMaterial({
+      baseHex: '#7d786f',
+      veinHex: '#2f2d29',
+      seed: 14,
+      metalness: 0.08,
+      minRough: 0.68,
+      maxRough: 0.92,
+      repeat: 2
+    });
+
+    // --- 地盤與東京灣海波 ---
+    const groundMat = createWoodblockMaterial({
+      baseHex: '#2c3b47',
+      veinHex: '#151f28',
+      seed: 19,
+      metalness: 0.06,
+      minRough: 0.72,
+      maxRough: 0.94,
+      repeat: 36
+    });
+    const groundMesh = new THREE.Mesh(new THREE.CircleGeometry(245, 64), groundMat);
+    groundMesh.rotation.x = -Math.PI / 2;
+    groundMesh.receiveShadow = true;
+    scene.add(groundMesh);
+
+    function createUkiyoWaveMaterial() {
+      const size = 256;
+      const c = document.createElement('canvas');
+      c.width = c.height = size;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#174970';
+      ctx.fillRect(0, 0, size, size);
+
+      for (let y = 0; y < size; y += 16) {
+        for (let x = 0; x < size; x += 32) {
+          const ox = (y / 16) % 2 === 0 ? 0 : 16;
+          ctx.strokeStyle = '#f3e9d2';
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.arc(x + ox, y + 12, 13, Math.PI * 1.12, Math.PI * 1.88);
+          ctx.stroke();
+
+          ctx.strokeStyle = '#0c2338';
+          ctx.lineWidth = 2.0;
+          ctx.beginPath();
+          ctx.arc(x + ox, y + 15, 13, Math.PI * 1.15, Math.PI * 1.85);
+          ctx.stroke();
+        }
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(42, 42);
+      return new THREE.MeshStandardMaterial({
+        map: tex,
+        roughness: 0.24,
+        metalness: 0.52
+      });
+    }
+    const bayMesh = new THREE.Mesh(new THREE.RingGeometry(240, 720, 64), createUkiyoWaveMaterial());
+    bayMesh.rotation.x = -Math.PI / 2;
+    bayMesh.position.y = -0.2;
+    scene.add(bayMesh);
+
+    // --- 遠眺富士山：具優雅凹弧「腰身」與「微平火山口」的浮世繪山形 ---
+    function createFujiTexture() {
+      const w = 512, h = 256;
+      const c = document.createElement('canvas');
+      c.width = w;
+      c.height = h;
+      const ctx = c.getContext('2d');
+
+      // 山體藍染漸層（普魯士藍至深靛色）
+      const grad = ctx.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0.00, '#1d4970');
+      grad.addColorStop(0.45, '#275c87');
+      grad.addColorStop(0.85, '#4b83a6');
+      grad.addColorStop(1.00, '#9fc4d4');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      // 木版雕刻山脊縱向線條
+      for (let i = 0; i < 64; i++) {
+        const sx = (i / 64) * w;
+        ctx.strokeStyle = i % 2 === 0 ? 'rgba(14, 32, 52, 0.28)' : 'rgba(245, 236, 216, 0.14)';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(sx, 28);
+        ctx.quadraticCurveTo(sx + Math.sin(i) * 8, h * 0.55, sx + Math.cos(i) * 14, h);
+        ctx.stroke();
+      }
+
+      // 北齋版畫風格：山頂積雪與指狀雪溪（Snow Fingers）
+      ctx.fillStyle = '#f6efe0';
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(w, 0);
+      const teeth = 28;
+      for (let i = teeth; i >= 0; i--) {
+        const x = (i / teeth) * w;
+        const fingerLen = 34 + Math.sin(i * 1.9) * 18 + Math.cos(i * 3.7) * 14;
+        ctx.lineTo(x, fingerLen);
+      }
+      ctx.closePath();
+      ctx.fill();
+
+      // 積雪下緣主版墨線勾勒
+      ctx.strokeStyle = '#122234';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      for (let i = 0; i <= teeth; i++) {
+        const x = (i / teeth) * w;
+        const fingerLen = 34 + Math.sin(i * 1.9) * 18 + Math.cos(i * 3.7) * 14;
+        if (i === 0) ctx.moveTo(x, fingerLen);
+        else ctx.lineTo(x, fingerLen);
+      }
+      ctx.stroke();
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.wrapS = THREE.RepeatWrapping;
+      return tex;
+    }
+
+    // 建構富士山剖面曲線（有明顯腰身 + 頂部微平火山口）
+    const fujiPoints = [];
+    const fujiH = 68;
+    const fujiBaseR = 132;
+    const fujiTopR = 15.5; // 頂部微平的寬度
+    const steps = 32;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps; // 0 = 山腳, 1 = 山頂
+      // 凹弧腰身公式：山腳平緩展開，中段收束出優雅曲線，頂端收斂至平頂火山口
+      const curve = Math.pow(1 - t, 2.35);
+      const r = fujiTopR + (fujiBaseR - fujiTopR) * curve;
+      const y = t * fujiH;
+      fujiPoints.push(new THREE.Vector2(r, y));
+    }
+    // 火山口頂緣微平並略向內凹（表現平頂火山口）
+    fujiPoints.push(new THREE.Vector2(fujiTopR * 0.72, fujiH + 0.35));
+    fujiPoints.push(new THREE.Vector2(0, fujiH - 1.4));
+
+    const fujiGeo = new THREE.LatheGeometry(fujiPoints, 56);
+    const fujiMat = new THREE.MeshStandardMaterial({
+      map: createFujiTexture(),
+      roughness: 0.78,
+      metalness: 0.05
+    });
+    const fujiMesh = new THREE.Mesh(fujiGeo, fujiMat);
+    attachInkOutline(fujiMesh, 1.012);
+    fujiMesh.position.set(-255, -0.5, -315);
+    scene.add(fujiMesh);
+
+    // --- 東京鐵塔建模（18 層交叉桁架 + 雙展望台） ---
+    const towerGroup = new THREE.Group();
+    const towerH = 82;
+    const shaftH = towerH * 0.77;
+    const baseR = 10.4;
+    const topR = 0.80;
+
+    function getTowerHalfSpan(t) {
+      return topR + (baseR - topR) * Math.pow(1 - t, 1.48);
+    }
+
+    const tiers = 18;
+    const corners = [
+      [-1, -1],
+      [1, -1],
+      [1, 1],
+      [-1, 1]
+    ];
+
+    corners.forEach(([sx, sz]) => {
+      const pier = new THREE.Mesh(new THREE.BoxGeometry(2.8, 2.2, 2.8), stonePierMat);
+      pier.position.set(sx * baseR, 1.1, sz * baseR);
+      pier.castShadow = true;
+      pier.receiveShadow = true;
+      attachInkOutline(pier, 1.04);
+      towerGroup.add(pier);
+    });
+
+    const redStrutMatrices = [];
+    const whiteStrutMatrices = [];
+    const dummy = new THREE.Object3D();
+    const upVec = new THREE.Vector3(0, 1, 0);
+
+    function pushStrut(list, p1, p2, thickness) {
+      const dir = new THREE.Vector3().subVectors(p2, p1);
+      const len = dir.length();
+      if (len < 0.001) return;
+      dummy.position.copy(p1).addScaledVector(dir, 0.5);
+      dummy.quaternion.setFromUnitVectors(upVec, dir.normalize());
+      dummy.scale.set(thickness, len, thickness);
+      dummy.updateMatrix();
+      list.push(dummy.matrix.clone());
+    }
+
+    for (let i = 0; i < tiers; i++) {
+      const t0 = i / tiers;
+      const t1 = (i + 1) / tiers;
+      const y0 = t0 * shaftH;
+      const y1 = t1 * shaftH;
+      const s0 = getTowerHalfSpan(t0);
+      const s1 = getTowerHalfSpan(t1);
+
+      const isWhite = (i >= 6 && i <= 8) || (i >= 13 && i <= 15);
+      const targetList = isWhite ? whiteStrutMatrices : redStrutMatrices;
+      const legThick = THREE.MathUtils.lerp(0.70, 0.24, t0);
+      const braceThick = THREE.MathUtils.lerp(0.24, 0.09, t0);
+
+      for (let c = 0; c < 4; c++) {
+        const [sx, sz] = corners[c];
+        const pA = new THREE.Vector3(sx * s0, y0, sz * s0);
+        const pB = new THREE.Vector3(sx * s1, y1, sz * s1);
+        pushStrut(targetList, pA, pB, legThick);
+      }
+
+      for (let c = 0; c < 4; c++) {
+        const [sx1, sz1] = corners[c];
+        const [sx2, sz2] = corners[(c + 1) % 4];
+
+        const b1 = new THREE.Vector3(sx1 * s0, y0, sz1 * s0);
+        const b2 = new THREE.Vector3(sx2 * s0, y0, sz2 * s0);
+        const u1 = new THREE.Vector3(sx1 * s1, y1, sz1 * s1);
+        const u2 = new THREE.Vector3(sx2 * s1, y1, sz2 * s1);
+
+        pushStrut(targetList, u1, u2, braceThick * 1.15);
+        pushStrut(targetList, b1, u2, braceThick * 0.85);
+        pushStrut(targetList, b2, u1, braceThick * 0.85);
+      }
+    }
+
+    const unitStrutGeo = new THREE.BoxGeometry(1, 1, 1);
+    function buildInstancedStruts(matrices, material) {
+      const inst = new THREE.InstancedMesh(unitStrutGeo, material, matrices.length);
+      matrices.forEach((m, idx) => inst.setMatrixAt(idx, m));
+      inst.castShadow = true;
+      inst.receiveShadow = true;
+      towerGroup.add(inst);
+      return inst;
+    }
+    buildInstancedStruts(redStrutMatrices, towerRedMat);
+    buildInstancedStruts(whiteStrutMatrices, towerWhiteMat);
+
+    // 大展望台
+    const mainDeckY = shaftH * 0.43;
+    const mainDeckSpan = getTowerHalfSpan(0.43) * 2.15;
+
+    const deckLower = new THREE.Mesh(
+      new THREE.BoxGeometry(mainDeckSpan * 0.92, 1.3, mainDeckSpan * 0.92),
+      towerRedMat
+    );
+    deckLower.position.y = mainDeckY - 1.1;
+    deckLower.castShadow = true;
+    attachInkOutline(deckLower, 1.028);
+
+    const deckGlassMat = createUkiyoBuildingPBR({
+      wallHex: '#f4ead5',
+      trimHex: '#15212e',
+      glassHex: '#254e70',
+      glowHex: '#ffcf75',
+      cols: 10,
+      rows: 2,
+      seed: 77,
+      glassMetal: 0.78,
+      glassRough: 0.14
+    });
+    const deckCabin = new THREE.Mesh(
+      new THREE.BoxGeometry(mainDeckSpan, 2.3, mainDeckSpan),
+      deckGlassMat
+    );
+    deckCabin.position.y = mainDeckY + 0.55;
+    deckCabin.castShadow = true;
+    attachInkOutline(deckCabin, 1.025);
+
+    const deckRoof = new THREE.Mesh(
+      new THREE.BoxGeometry(mainDeckSpan * 1.06, 0.65, mainDeckSpan * 1.06),
+      towerWhiteMat
+    );
+    deckRoof.position.y = mainDeckY + 1.95;
+    attachInkOutline(deckRoof, 1.028);
+    towerGroup.add(deckLower, deckCabin, deckRoof);
+
+    // 特別展望台
+    const topDeckY = shaftH * 0.74;
+    const topDeckSpan = getTowerHalfSpan(0.74) * 2.35;
+    const topDeck = new THREE.Mesh(
+      new THREE.BoxGeometry(topDeckSpan, 2.1, topDeckSpan),
+      deckGlassMat
+    );
+    topDeck.position.y = topDeckY;
+    topDeck.castShadow = true;
+    attachInkOutline(topDeck, 1.038);
+
+    const topDeckCap = new THREE.Mesh(
+      new THREE.BoxGeometry(topDeckSpan * 1.12, 0.5, topDeckSpan * 1.12),
+      towerRedMat
+    );
+    topDeckCap.position.y = topDeckY + 1.25;
+    attachInkOutline(topDeckCap, 1.038);
+    towerGroup.add(topDeck, topDeckCap);
+
+    // 頂部紅白發射天線
+    const antTotalH = towerH * 0.25;
+    const antSegments = [
+      { ratio: 0.36, rBot: 0.42, rTop: 0.30, mat: towerWhiteMat },
+      { ratio: 0.28, rBot: 0.30, rTop: 0.20, mat: towerRedMat },
+      { ratio: 0.22, rBot: 0.20, rTop: 0.11, mat: towerWhiteMat },
+      { ratio: 0.14, rBot: 0.11, rTop: 0.04, mat: towerRedMat }
+    ];
+    let curY = shaftH;
+    antSegments.forEach((seg) => {
+      const h = antTotalH * seg.ratio;
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(seg.rTop, seg.rBot, h, 12), seg.mat);
+      m.position.y = curY + h * 0.5;
+      m.castShadow = true;
+      attachInkOutline(m, 1.09);
+      towerGroup.add(m);
+      curY += h;
+    });
+
+    const beaconMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.28, 12, 12),
+      new THREE.MeshBasicMaterial({ color: '#ff5238' })
+    );
+    beaconMesh.position.y = curY + 0.2;
+    towerGroup.add(beaconMesh);
+    scene.add(towerGroup);
+
+    // --- 芝公園綠樹與紅葉林帶（鐵塔周圍緊貼地面的低矮林叢） ---
+    const parkGroup = new THREE.Group();
+    const foliageMats = [
+      createWoodblockMaterial({ baseHex: '#244a35', veinHex: '#0e2217', seed: 51, metalness: 0.04, minRough: 0.75, maxRough: 0.92, repeat: 2 }),
+      createWoodblockMaterial({ baseHex: '#c84b28', veinHex: '#631d0c', seed: 52, metalness: 0.05, minRough: 0.70, maxRough: 0.88, repeat: 2 }),
+      createWoodblockMaterial({ baseHex: '#d9882b', veinHex: '#6e3d0b', seed: 53, metalness: 0.05, minRough: 0.72, maxRough: 0.90, repeat: 2 })
+    ];
+
+    let seed = 20261120;
+    function rand() {
+      seed = (seed * 1664525 + 1013904223) % 4294967296;
+      return seed / 4294967296;
+    }
+
+    const domeGeo = new THREE.IcosahedronGeometry(1, 2);
+    for (let i = 0; i < 95; i++) {
+      const ang = rand() * Math.PI * 2;
+      const rad = 11.2 + rand() * 19.5;
+      const rSize = 1.2 + rand() * 1.9;
+      const tree = new THREE.Mesh(domeGeo, foliageMats[i % foliageMats.length]);
+      tree.scale.set(rSize * 1.2, rSize * 0.72, rSize * 1.2);
+      tree.position.set(Math.cos(ang) * rad, rSize * 0.48, Math.sin(ang) * rad);
+      tree.castShadow = true;
+      tree.receiveShadow = true;
+      attachInkOutline(tree, 1.032);
+      parkGroup.add(tree);
+    }
+    scene.add(parkGroup);
+
+    // --- 首都高速道路 ---
+    const roadGroup = new THREE.Group();
+    const roadMat = createWoodblockMaterial({ baseHex: '#25323d', veinHex: '#10171f', seed: 66, metalness: 0.12, minRough: 0.65, maxRough: 0.88, repeat: 12 });
+    const roadCurves = [
+      new THREE.CatmullRomCurve3([
+        new THREE.Vector3(-150, 2.4, 62),
+        new THREE.Vector3(-42, 2.6, 34),
+        new THREE.Vector3(28, 2.5, 32),
+        new THREE.Vector3(155, 2.4, 54)
+      ]),
+      new THREE.CatmullRomCurve3([
+        new THREE.Vector3(-64, 2.6, -150),
+        new THREE.Vector3(-32, 2.8, -32),
+        new THREE.Vector3(-34, 2.6, 36),
+        new THREE.Vector3(-48, 2.4, 150)
+      ])
+    ];
+
+    roadCurves.forEach((curve) => {
+      const tubeGeo = new THREE.TubeGeometry(curve, 72, 2.0, 6, false);
+      tubeGeo.scale(1, 0.26, 1);
+      const roadMesh = new THREE.Mesh(tubeGeo, roadMat);
+      roadMesh.castShadow = true;
+      roadMesh.receiveShadow = true;
+      attachInkOutline(roadMesh, 1.02);
+      roadGroup.add(roadMesh);
+
+      for (let t = 0.08; t <= 0.92; t += 0.14) {
+        const pt = curve.getPoint(t);
+        const pillar = new THREE.Mesh(new THREE.BoxGeometry(1.0, pt.y, 1.0), stonePierMat);
+        pillar.position.set(pt.x, pt.y * 0.5, pt.z);
+        attachInkOutline(pillar, 1.04);
+        roadGroup.add(pillar);
+      }
+    });
+    scene.add(roadGroup);
+
+    // --- 都市建築群（嚴格依照片比例：塔周邊低矮錯落，遠方地平線才出現高樓天際線） ---
+    const bldgStyleConfigs = [
+      { wallHex: '#eee3ce', trimHex: '#15212e', glassHex: '#2c587a', glowHex: '#ffd178', cols: 6, rows: 10, seed: 101 },
+      { wallHex: '#35536b', trimHex: '#101a24', glassHex: '#6396b8', glowHex: '#ffe099', cols: 8, rows: 16, seed: 102 },
+      { wallHex: '#cfc0a6', trimHex: '#1b2633', glassHex: '#23445e', glowHex: '#ffbe66', cols: 5, rows: 9, seed: 103 },
+      { wallHex: '#1f364a', trimHex: '#0d1620', glassHex: '#4b7fa3', glowHex: '#ffd885', cols: 7, rows: 15, seed: 104 },
+      { wallHex: '#dfd2bc', trimHex: '#15212e', glassHex: '#326285', glowHex: '#ffc970', cols: 6, rows: 8, seed: 105 }
+    ];
+    const bldgMaterials = bldgStyleConfigs.map((cfg) => createUkiyoBuildingPBR(cfg));
+
+    const cityGroup = new THREE.Group();
+    const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+
+    function addBuilding({ x, z, w, h, d, rotY = 0, matIdx = 0, hasSetback = false }) {
+      const mat = bldgMaterials[matIdx % bldgMaterials.length];
+      const bldg = new THREE.Group();
+      bldg.position.set(x, 0, z);
+      bldg.rotation.y = rotY;
+
+      const mainBody = new THREE.Mesh(boxGeo, mat);
+      mainBody.scale.set(w, h, d);
+      mainBody.position.y = h * 0.5;
+      mainBody.castShadow = true;
+      mainBody.receiveShadow = true;
+      attachInkOutline(mainBody, 1.018);
+      bldg.add(mainBody);
+
+      if (hasSetback && h > 18) {
+        const topH = h * 0.2;
+        const upperBody = new THREE.Mesh(boxGeo, mat);
+        upperBody.scale.set(w * 0.68, topH, d * 0.68);
+        upperBody.position.y = h + topH * 0.5;
+        upperBody.castShadow = true;
+        attachInkOutline(upperBody, 1.022);
+        bldg.add(upperBody);
+      } else {
+        const mech = new THREE.Mesh(boxGeo, stonePierMat);
+        mech.scale.set(w * 0.34, 0.85, d * 0.34);
+        mech.position.set(0, h + 0.42, 0);
+        attachInkOutline(mech, 1.03);
+        bldg.add(mech);
+      }
+      cityGroup.add(bldg);
+    }
+
+    // 還原照片中的地標性低矮建築：
+    // 1. 鐵塔左後方白色長條橫向建築（東京王子大飯店輪廓）
+    addBuilding({ x: -24, z: -22, w: 19, h: 6.2, d: 6.5, rotY: 0.08, matIdx: 0 });
+    // 2. 鐵塔右前方白色方正中層建築
+    addBuilding({ x: 14, z: 22, w: 10.5, h: 11.2, d: 9.5, rotY: 0.35, matIdx: 0 });
+
+    for (let i = 0; i < 235; i++) {
+      const angle = rand() * Math.PI * 2;
+      const dist = 29 + Math.pow(rand(), 0.9) * 175;
+      const x = Math.cos(angle) * dist;
+      const z = Math.sin(angle) * dist;
+
+      // 避開道路與地標建築
+      if (Math.abs(z - 33) < 5.0 && Math.abs(x) < 105) continue;
+      if (Math.abs(x + 33) < 5.0 && Math.abs(z) < 105) continue;
+      if (Math.hypot(x + 24, z + 22) < 13) continue;
+      if (Math.hypot(x - 14, z - 22) < 10) continue;
+
+      const w = 4.2 + rand() * 8.5;
+      const d = 4.2 + rand() * 8.5;
+
+      // 關鍵比例控制：
+      // 近圈（dist < 72）：低矮至中低層樓（高 3.5 ~ 13.5），絕不遮擋鐵塔腰身與展望台
+      // 遠圈（dist >= 72）：遠方地平線摩天樓天際線（高 14 ~ 38）
+      let h;
+      if (dist < 72) {
+        h = 3.5 + rand() * 9.5;
+      } else {
+        const horizonFactor = (dist - 72) / 130;
+        h = 8.0 + rand() * (14 + horizonFactor * 22);
+      }
+
+      addBuilding({
+        x,
+        z,
+        w,
+        h,
+        d,
+        rotY: (Math.floor(rand() * 4) * Math.PI) / 2 + (rand() - 0.5) * 0.08,
+        matIdx: Math.floor(rand() * bldgMaterials.length),
+        hasSetback: dist > 85 && rand() > 0.4
+      });
+    }
+    scene.add(cityGroup);
+
+    // --- 酥鬆棉花團狀浮世繪積雲（Fluffy Cotton-Ball Ukiyo-e Clouds） ---
+    const cloudGroup = new THREE.Group();
+    const cottonCloudMat = createWoodblockMaterial({
+      baseHex: '#f8f0de',
+      veinHex: '#d4c3a3',
+      seed: 88,
+      metalness: 0.04,
+      minRough: 0.65,
+      maxRough: 0.88,
+      repeat: 2
+    });
+
+    // 建構立體棉花團雲朵（平底 + 多顆蓬鬆圓球交疊 + 墨線輪廓）
+    function createCottonCumulusCluster(scaleSize, yPos, xPos, zPos) {
+      const cluster = new THREE.Group();
+      const puffGeo = new THREE.IcosahedronGeometry(1, 3);
+
+      // 將球體下半部略微壓平，形成浮世繪雲朵特有的「平底蓬頂」棉花團造型
+      const posAttr = puffGeo.attributes.position;
+      for (let i = 0; i < posAttr.count; i++) {
+        const py = posAttr.getY(i);
+        if (py < -0.25) {
+          posAttr.setY(i, -0.25 + (py + 0.25) * 0.28);
+        }
+      }
+      puffGeo.computeVertexNormals();
+
+      const puffCount = 9 + Math.floor(rand() * 5);
+      for (let i = 0; i < puffCount; i++) {
+        const t = (i / (puffCount - 1)) - 0.5; // -0.5 ~ 0.5 橫向展佈
+        // 中間高聳蓬鬆、兩側漸低收圓
+        const arch = Math.cos(t * Math.PI * 0.88);
+        const r = scaleSize * (0.38 + arch * 0.48 + (rand() - 0.5) * 0.16);
+        const px = t * scaleSize * 2.5 + (rand() - 0.5) * scaleSize * 0.35;
+        const py = arch * scaleSize * 0.42 + (rand() - 0.5) * scaleSize * 0.14;
+        const pz = (rand() - 0.5) * scaleSize * 0.95;
+
+        const puff = new THREE.Mesh(puffGeo, cottonCloudMat);
+        puff.scale.set(r * 1.12, r * 0.95, r * 1.05);
+        puff.position.set(px, py, pz);
+        puff.castShadow = true;
+        puff.receiveShadow = true;
+        attachInkOutline(puff, 1.035);
+        cluster.add(puff);
+      }
+
+      cluster.position.set(xPos, yPos, zPos);
+      cluster.userData.baseX = xPos;
+      cluster.userData.speed = 0.45 + rand() * 0.55;
+      cluster.userData.phase = rand() * Math.PI * 2;
+      cloudGroup.add(cluster);
+    }
+
+    // 雲團分佈於天空與富士山腰際，不遮擋鐵塔主視線
+    const cumulusSpecs = [
+      [11.5, 58, -68, -75],
+      [9.5, 66, 62, -58],
+      [13.0, 52, -145, -185], // 富士山側方綿雲
+      [10.0, 62, 115, -135],
+      [8.5, 68, -22, -130],
+      [11.0, 56, 85, 42],
+      [9.0, 64, -95, 48]
+    ];
+    cumulusSpecs.forEach((args) => createCottonCumulusCluster(...args));
+    scene.add(cloudGroup);
+
+    // --- 相機球面軌道控制與原圖構圖預設 ---
+    const target = new THREE.Vector3(0, 25, 0);
+    // 預設視角對齊上傳照片的俯瞰構圖，同時可隱約看見遠方富士山
+    const camState = { radius: 96, theta: 0.56, phi: 1.16 };
+    let autoRotate = false;
+    let cloudAnim = true;
+
+    function updateCamera() {
+      camState.phi = THREE.MathUtils.clamp(camState.phi, 0.22, Math.PI * 0.478);
+      camState.radius = THREE.MathUtils.clamp(camState.radius, 32, 225);
+      const sinPhi = Math.sin(camState.phi);
+      camera.position.set(
+        target.x + camState.radius * sinPhi * Math.sin(camState.theta),
+        target.y + camState.radius * Math.cos(camState.phi),
+        target.z + camState.radius * sinPhi * Math.cos(camState.theta)
+      );
+      camera.lookAt(target);
+    }
+    updateCamera();
+
+    // 單指拖曳旋轉、雙指縮放
+    const pointers = new Map();
+    let prevPinchDist = null;
+    let lastX = 0;
+    let lastY = 0;
+    const domEl = renderer.domElement;
+
+    domEl.addEventListener('pointerdown', (e) => {
+      domEl.setPointerCapture(e.pointerId);
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pointers.size === 1) {
+        lastX = e.clientX;
+        lastY = e.clientY;
+        prevPinchDist = null;
+      } else if (pointers.size === 2) {
+        const [a, b] = [...pointers.values()];
+        prevPinchDist = Math.hypot(a.x - b.x, a.y - b.y);
+      }
+    });
+
+    domEl.addEventListener('pointermove', (e) => {
+      if (!pointers.has(e.pointerId)) return;
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      if (pointers.size === 1) {
+        const dx = e.clientX - lastX;
+        const dy = e.clientY - lastY;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        camState.theta -= dx * 0.0062;
+        camState.phi -= dy * 0.0062;
+        updateCamera();
+      } else if (pointers.size === 2) {
+        const [a, b] = [...pointers.values()];
+        const dist = Math.hypot(a.x - b.x, a.y - b.y);
+        if (prevPinchDist && prevPinchDist > 0) {
+          camState.radius *= prevPinchDist / dist;
+          updateCamera();
+        }
+        prevPinchDist = dist;
+      }
+    });
+
+    function releasePointer(e) {
+      pointers.delete(e.pointerId);
+      if (pointers.size < 2) prevPinchDist = null;
+      if (pointers.size === 1) {
+        const [only] = [...pointers.values()];
+        lastX = only.x;
+        lastY = only.y;
+      }
+    }
+    domEl.addEventListener('pointerup', releasePointer);
+    domEl.addEventListener('pointercancel', releasePointer);
+    domEl.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      camState.radius += e.deltaY * 0.055;
+      updateCamera();
+    }, { passive: false });
+
+    // --- UI 控制項連動 ---
+    const inkWeightInput = document.getElementById('ink-weight');
+    const woodReliefInput = document.getElementById('wood-relief');
+    const sunElevInput = document.getElementById('sun-elev');
+    const sunAzimInput = document.getElementById('sun-azim');
+    const autoRotBtn = document.getElementById('auto-rot');
+    const cloudAnimBtn = document.getElementById('cloud-anim');
+
+    const allPbrMaterials = [
+      towerRedMat, towerWhiteMat, stonePierMat, groundMat,
+      ...foliageMats, roadMat, cottonCloudMat, ...bldgMaterials
+    ];
+
+    function syncInkWeight() {
+      const w = Number(inkWeightInput.value);
+      document.getElementById('ink-weight-val').textContent = w.toFixed(2);
+      outlineMeshes.forEach((m) => {
+        m.visible = w > 0.01;
+        const extra = (m.userData.baseScale - 1) * w;
+        m.scale.setScalar(1 + extra);
+      });
+    }
+
+    function syncWoodRelief() {
+      const r = Number(woodReliefInput.value);
+      document.getElementById('wood-relief-val').textContent = r.toFixed(2);
+      allPbrMaterials.forEach((mat) => {
+        if ('bumpScale' in mat) mat.bumpScale = r;
+      });
+    }
+
+    function syncSun() {
+      const elev = THREE.MathUtils.degToRad(Number(sunElevInput.value));
+      const azim = THREE.MathUtils.degToRad(Number(sunAzimInput.value));
+      const dist = 165;
+      sunLight.position.set(
+        dist * Math.cos(elev) * Math.sin(azim),
+        dist * Math.sin(elev),
+        dist * Math.cos(elev) * Math.cos(azim)
+      );
+      document.getElementById('sun-elev-val').textContent = `${sunElevInput.value}°`;
+      document.getElementById('sun-azim-val').textContent = `${sunAzimInput.value}°`;
+    }
+
+    inkWeightInput.addEventListener('input', syncInkWeight);
+    woodReliefInput.addEventListener('input', syncWoodRelief);
+    sunElevInput.addEventListener('input', syncSun);
+    sunAzimInput.addEventListener('input', syncSun);
+
+    document.getElementById('view-photo').addEventListener('click', () => {
+      target.set(0, 25, 0);
+      camState.radius = 96;
+      camState.theta = 0.56;
+      camState.phi = 1.16;
+      updateCamera();
+    });
+
+    document.getElementById('view-fuji').addEventListener('click', () => {
+      target.set(-28, 26, -34);
+      camState.radius = 94;
+      camState.theta = 0.70;
+      camState.phi = 1.35;
+      updateCamera();
+    });
+
+    document.getElementById('view-low').addEventListener('click', () => {
+      target.set(0, 34, 0);
+      camState.radius = 48;
+      camState.theta = 0.42;
+      camState.phi = 1.44;
+      updateCamera();
+    });
+
+    autoRotBtn.addEventListener('click', () => {
+      autoRotate = !autoRotate;
+      autoRotBtn.textContent = autoRotate ? '自動巡遊：開' : '自動巡遊：關';
+      autoRotBtn.classList.toggle('active', autoRotate);
+    });
+
+    cloudAnimBtn.addEventListener('click', () => {
+      cloudAnim = !cloudAnim;
+      cloudAnimBtn.textContent = cloudAnim ? '雲團飄移：開' : '雲團飄移：關';
+    });
+
+    syncInkWeight();
+    syncWoodRelief();
+    syncSun();
+
+    // --- 視窗縮放與動畫循環 ---
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    let lastTime = performance.now();
+    let elapsed = 0;
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const dt = Math.min((now - lastTime) / 1000, 0.05);
+      lastTime = now;
+      elapsed += dt;
+
+      if (autoRotate && pointers.size === 0) {
+        camState.theta += dt * 0.22;
+        updateCamera();
+      }
+
+      if (cloudAnim) {
+        cloudGroup.children.forEach((c) => {
+          c.position.x = c.userData.baseX + Math.sin(elapsed * 0.28 * c.userData.speed + c.userData.phase) * 7.5;
+        });
+      }
+
+      beaconMesh.scale.setScalar(0.85 + Math.sin(elapsed * 4.5) * 0.25);
+      renderer.render(scene, camera);
+    }
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
